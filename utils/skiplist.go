@@ -44,7 +44,7 @@ func (s *SkipList) Close() error {
 	return nil
 }
 
-// 表示节点要被提取的层数,0~height
+// 表示节点要被提取的层数,0~height，后续可以使用fastrand优化
 func Randextract(height int) int {
 	ret := 0
 	for ret = 0; ret < height; ret++ {
@@ -114,7 +114,6 @@ func (s *SkipList) AddUnique(entry *codec.Entry) error {
 			cache[0].next[0] = insertNode
 			s.num++
 		}
-
 	} else {
 		// 我们对重复key不进行提层
 		levels := Randextract(s.height - 1)
@@ -137,6 +136,78 @@ func (s *SkipList) AddUnique(entry *codec.Entry) error {
 		s.constructSL()
 	}
 	return nil
+}
+
+func (s *SkipList) ShowMeSkiplist() {
+	Print("下图为skiplist：")
+	for i := 0; i < s.height; i++ {
+		fmt.Printf("level %d 的node为： ", i)
+		pre := s.head.member.Key
+		nd := s.head.next[i]
+		for nd != nil {
+			fmt.Printf("%s---", string(nd.member.Key))
+			if bytes.Compare(pre, nd.member.Key) > 0 {
+				fmt.Errorf("err skiplist is not sort ", i)
+			}
+			nd = nd.next[i]
+		}
+		fmt.Printf("\n")
+	}
+}
+
+func (s *SkipList) Search(key []byte) *codec.Entry {
+	nd := s.head
+	pre := nd
+	for i := s.height - 1; i >= 0; i-- {
+		nd = pre
+		for nd != nil {
+			ret := bytes.Compare(nd.member.Key, key)
+			if ret < 0 {
+				pre = nd
+				nd = nd.next[i]
+			} else if ret == 0 {
+				return nd.member
+			} else {
+				nd = pre
+				break
+			}
+		}
+	}
+	fmt.Println("this key is not exist")
+	return nil
+}
+
+func (s *SkipList) Update(entry *codec.Entry) {
+	ent := s.Search(entry.Key)
+	if ent != nil {
+		ent.Value = entry.Value
+		ent.ExpiresAt = entry.ExpiresAt
+	} else {
+		fmt.Println("This entry is not exist,suggest add")
+	}
+}
+
+func (s *SkipList)Delete(entry *codec.Entry){
+	if s.Search(entry.Key)==nil{
+		fmt.Errorf("this key is not exist")
+	}
+	
+}
+
+
+/*-----------------下面是无用函数--------------------*/
+func (s *SkipList) levelSearch(nd *node, key []byte, level int) (bool, *node) {
+	for nd.next[level] != nil {
+		cmp := bytes.Compare(nd.next[level].member.Key, key)
+		if cmp < 0 {
+			nd = nd.next[level]
+		} else if cmp == 0 {
+			return true, nd.next[level]
+		} else {
+			return false, nd
+		}
+	}
+	return false, nd
 }
 
 // 允许重复key的添加
@@ -181,67 +252,4 @@ func (s *SkipList) Add(entry *codec.Entry) error {
 		s.ShowMeSkiplist()
 	}
 	return nil
-}
-
-func (s *SkipList) ShowMeSkiplist() {
-	Print("下图为skiplist：")
-	for i := 0; i < s.height; i++ {
-		fmt.Printf("level %d 的node为： ", i)
-		pre := s.head.member.Key
-		nd := s.head.next[i]
-		for nd != nil {
-			fmt.Printf("%s---", string(nd.member.Key))
-			if bytes.Compare(pre, nd.member.Key) > 0 {
-				fmt.Errorf("err skiplist is not sort ", i)
-			}
-			nd = nd.next[i]
-		}
-		fmt.Printf("\n")
-	}
-}
-
-func (s *SkipList) levelSearch(nd *node, key []byte, level int) (bool, *node) {
-	for nd.next[level] != nil {
-		cmp := bytes.Compare(nd.next[level].member.Key, key)
-		if cmp < 0 {
-			nd = nd.next[level]
-		} else if cmp == 0 {
-			return true, nd.next[level]
-		} else {
-			return false, nd
-		}
-	}
-	return false, nd
-}
-
-func (s *SkipList) Search(key []byte) *codec.Entry {
-	nd := s.head
-	pre := nd
-	for i := s.height - 1; i >= 0; i-- {
-		nd = pre
-		for nd != nil {
-			ret := bytes.Compare(nd.member.Key, key)
-			if ret < 0 {
-				pre = nd
-				nd = nd.next[i]
-			} else if ret == 0 {
-				return nd.member
-			} else {
-				nd = pre
-				break
-			}
-		}
-	}
-	fmt.Println("this key is not exist")
-	return nil
-}
-
-func (s *SkipList) Update(entry *codec.Entry) {
-	ent := s.Search(entry.Key)
-	if ent != nil {
-		ent.Value = entry.Value
-		ent.ExpiresAt = entry.ExpiresAt
-	} else {
-		fmt.Println("This entry is not exist,suggest add")
-	}
 }
