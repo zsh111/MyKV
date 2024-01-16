@@ -5,8 +5,17 @@ import (
 	"corekv/utils/codec"
 )
 
+/*
+ * LSM结构为多层level，每个level有多个sstable
+ * 宏观一个levelmanager管理所有的level
+ * 每一个level有一个levelhandler
+ * 每一个levelhandler持有多个sstable==builder
+ * 更多具体的结构可以看ppt中展示的结构图
+ * table -----> builder ------> sst
+ */
+
 type LSM struct {
-	memTable   *memTable
+	memTable   *memTable //当前的memTable
 	immutables []*memTable
 	levels     *levelManager
 	option     *Options
@@ -33,11 +42,12 @@ func (lsm *LSM) Close() error {
 
 func NewLSM(opt *Options) *LSM {
 	lsm := &LSM{option: opt}
-	// 启动db时加载wal，没有恢复就创建新的内存表
-	lsm.memTable, lsm.immutables = recovery(opt)
 
 	// 初始化levelmanager
-	lsm.levels = newLevelManager(opt)
+	lsm.levels = lsm.NewLevelManager(opt)
+
+	// 启动db时加载wal，没有恢复就创建新的内存表
+	lsm.memTable, lsm.immutables = lsm.recovery(opt)
 
 	// 初始化closer用于资源回收的信号控制
 	lsm.closer = utils.NewCloser(1)
@@ -58,7 +68,7 @@ func (lsm *LSM) StartMerge() {
 func (lsm *LSM) Set(entry *codec.Entry) error {
 	// 检测当前memtable是否写满，如果已满：创建新的memtable并将内存表写入immutable
 	// 否则直接写入
-	if err := lsm.memTable.set(entry); err != nil {
+	if err := lsm.memTable.Set(entry); err != nil {
 		return err
 	}
 
@@ -87,4 +97,9 @@ func (lsm *LSM) Get(key []byte) (*codec.Entry, error) {
 	}
 	// 从已经固化的文件中查找(多层的table中查找)
 	return lsm.levels.Get(key)
+}
+
+func (lm *LSM) Rotate() {
+	lm.immutables = append(lm.immutables, lm.memTable)
+	lm.memTable = lm.NewMemTable()
 }

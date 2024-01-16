@@ -7,9 +7,6 @@ type (
 	LogFile struct {
 		f *os.File
 	}
-	Options struct {
-		name string
-	}
 )
 
 // 判断文件是否关闭
@@ -27,6 +24,6 @@ func (lf *LogFile) Write(bytes []byte) error {
 // 创建文件
 func OpenLogFile(opt *Options) *LogFile {
 	lf := &LogFile{}
-	lf.f, _ = os.Create(opt.name)
+	lf.f, _ = os.Create(opt.FileName)
 	return lf
 }

@@ -5,6 +5,6 @@ package test
 */
 
 const (
-	kvlen     = 10
+	kvlen     = 5
 	iteration = 1000
 )

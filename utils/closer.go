@@ -28,3 +28,7 @@ func (c *Closer) Done() {
 func (c *Closer) Wait() chan struct{} {
 	return c.closeSignal
 }
+
+func (c *Closer) Add(n int) {
+	c.waiting.Add(n)
+}

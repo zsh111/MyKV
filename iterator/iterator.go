@@ -8,6 +8,7 @@ type Iterator interface {
 	Rewind()
 	Item() Item
 	Close() error
+	Seek(key []byte)
 }
 
 type Item interface {
