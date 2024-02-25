@@ -7,21 +7,17 @@ import "corekv/iterator"
 // 对于非L0层的sst，每一层存在自压缩(根据过期时间压缩)
 // 每次获取一串SST执行压缩计划（更好并行）
 
-type keyRange struct{
-	left []byte
+type keyRange struct {
+	left  []byte
 	right []byte
-	inf bool
-	size int64
+	inf   bool
+	size  int64
 }
 
-
-
-
-
-func iteratorsReversed(tb []*table,prefix []byte,isAsc bool)[]iterator.Iterator{
-	out := make([]iterator.Iterator, 0,len(tb))
+func iteratorsReversed(tb []*table, prefix []byte, isAsc bool) []iterator.Iterator {
+	out := make([]iterator.Iterator, 0, len(tb))
 	for i := len(tb) - 1; i >= 0; i-- {
-		out = append(out, tb[i].NewIterator(prefix,isAsc))
+		out = append(out, tb[i].NewIterator(prefix, isAsc))
 	}
 	return out
 }

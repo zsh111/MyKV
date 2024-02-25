@@ -17,7 +17,7 @@ type Cache struct {
 	c         *cmSketch
 	t         int32
 	threshold int32
-	data      map[uint64]*list.Element
+	data      map[uint64]*list.Element	
 }
 
 type stringStruct struct {

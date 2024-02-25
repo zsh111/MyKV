@@ -228,7 +228,6 @@ func ReplayManifestFile(fp *os.File) (ret *Manifest, truncOffset int64, err erro
 		}
 	}
 	return build, offset, err
-
 }
 
 func (mf *ManifestFile) rewrite() error {

@@ -96,7 +96,7 @@ func (h *WalHeader) Decode(reader *HashReader) (int, error) {
 	return reader.BytesRead, nil
 }
 
-// 预写日志的格式：|header|key|value|crc32|
+// 预写日志的格式：|header|key|value|crc32| 不变吗直接写
 func WalCodec(buf *bytes.Buffer, e *codec.Entry) int {
 	buf.Reset()
 	h := WalHeader{
@@ -115,6 +115,10 @@ func WalCodec(buf *bytes.Buffer, e *codec.Entry) int {
 	binary.BigEndian.PutUint32(crcBuf[:], hash.Sum32())
 	panic2(buf.Write(crcBuf[:]))
 	return len(headerEnc[:sz]) + len(e.Key) + len(e.Value) + len(crcBuf)
+}
+
+func EstimateWalCodecSize(e *codec.Entry) int {
+	return len(e.Key) + len(e.Value) + 8 /* expiret at */ + crc32.Size + maxHeaderSize
 }
 
 func panic2(_ interface{}, err error) {

@@ -121,68 +121,68 @@ func (iter *levelIterator) Seek(key []byte) {
 
 /*------------------------------------------------------------------*/
 // table的迭代器
-type ConcatIterator struct{
-	idx int
-	cur iterator.Iterator
-	iters []iterator.Iterator
+type ConcatIterator struct {
+	idx    int
+	cur    iterator.Iterator
+	iters  []iterator.Iterator
 	tables []*table
 	Prefix []byte
-	IsAsc bool 
+	IsAsc  bool
 }
 
-func NewConcatIterator(tb []*table,prefix []byte,isAsc bool)*ConcatIterator{
+func NewConcatIterator(tb []*table, prefix []byte, isAsc bool) *ConcatIterator {
 	iters := make([]iterator.Iterator, len(tb))
 	return &ConcatIterator{
 		Prefix: prefix,
-		IsAsc: isAsc,
+		IsAsc:  isAsc,
 		tables: tb,
-		iters: iters,
-		idx: -1,
+		iters:  iters,
+		idx:    -1,
 	}
 }
 
-func (s *ConcatIterator)setIdx(idx int){
+func (s *ConcatIterator) setIdx(idx int) {
 	s.idx = idx
 	if idx < 0 || idx >= len(s.iters) {
 		s.cur = nil
 		return
 	}
-	if s.iters[idx] ==nil {
-		s.iters[idx] = s.tables[idx].NewIterator(s.Prefix,s.IsAsc)
+	if s.iters[idx] == nil {
+		s.iters[idx] = s.tables[idx].NewIterator(s.Prefix, s.IsAsc)
 	}
 	s.cur = s.iters[s.idx]
 }
 
-func (s *ConcatIterator)Rewind(){
+func (s *ConcatIterator) Rewind() {
 	if len(s.iters) == 0 {
 		return
 	}
 	if !s.IsAsc {
 		s.setIdx(0)
-	}else{
-		s.setIdx(len(s.iters)-1)
+	} else {
+		s.setIdx(len(s.iters) - 1)
 	}
 	s.cur.Rewind()
 }
 
-func (s *ConcatIterator)Valid()bool{
-	return s.cur!=nil && s.cur.Valid()
+func (s *ConcatIterator) Valid() bool {
+	return s.cur != nil && s.cur.Valid()
 }
 
-func (s *ConcatIterator)Item()iterator.Item{
+func (s *ConcatIterator) Item() iterator.Item {
 	return s.cur.Item()
 }
 
-func (s *ConcatIterator)Seek(key []byte){
+func (s *ConcatIterator) Seek(key []byte) {
 	var idx int
 	if s.IsAsc {
-		idx  = sort.Search(len(s.tables),func (i int)bool  {
-			return bytes.Compare(s.tables[i].ss.GetMaxKey(),key) >= 0
+		idx = sort.Search(len(s.tables), func(i int) bool {
+			return bytes.Compare(s.tables[i].ss.GetMaxKey(), key) >= 0
 		})
-	}else {
+	} else {
 		n := len(s.tables)
-		idx = n - 1 - sort.Search(n,func (i int)bool  {
-			return bytes.Compare(s.tables[n-1-i].ss.GetMinKey(),key) <= 0
+		idx = n - 1 - sort.Search(n, func(i int) bool {
+			return bytes.Compare(s.tables[n-1-i].ss.GetMinKey(), key) <= 0
 		})
 	}
 	if idx >= len(s.tables) || idx < 0 {
@@ -193,15 +193,15 @@ func (s *ConcatIterator)Seek(key []byte){
 	s.cur.Seek(key)
 }
 
-func (s *ConcatIterator)Next(){
+func (s *ConcatIterator) Next() {
 	s.cur.Next()
 	if s.cur.Valid() {
 		return
 	}
-	for{
+	for {
 		if !s.IsAsc {
 			s.setIdx(s.idx + 1)
-		}else {
+		} else {
 			s.setIdx(s.idx - 1)
 		}
 		if s.cur == nil {
@@ -214,15 +214,14 @@ func (s *ConcatIterator)Next(){
 	}
 }
 
-func (s *ConcatIterator)Close()error{
+func (s *ConcatIterator) Close() error {
 	for _, it := range s.iters {
 		if it == nil {
 			continue
 		}
-		if err := it.Close();err != nil {
-			return fmt.Errorf("ConcaIterator:%+v",err)
+		if err := it.Close(); err != nil {
+			return fmt.Errorf("ConcaIterator:%+v", err)
 		}
 	}
 	return nil
 }
-

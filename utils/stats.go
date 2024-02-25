@@ -20,7 +20,7 @@ func (s *Stats) StartStats() {
 
 func NewStats(opt *Options) *Stats {
 	s := &Stats{}
-	s.closer = NewCloser(1)
+	s.closer = NewCloser()
 	s.EntryNum = 1
 	return s
 }

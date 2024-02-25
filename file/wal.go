@@ -69,6 +69,10 @@ func (wf *WalFile) Write(entry *codec.Entry) error {
 	return nil
 }
 
+func (wf *WalFile) ShowWal() {
+
+}
+
 func (wf *WalFile) Truncate(end int64) error {
 	if end <= 0 {
 		return nil

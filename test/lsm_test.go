@@ -17,17 +17,17 @@ import (
 var (
 	// 初始化opt
 	opt = &lsm.Options{
-		WorkDir:            "/home/zsh/Desktop/Go/work_test/",
-		SSTableMaxSize:     1024,
-		MemTableSize:       1024,
-		BlockSize:          1024,
-		BloomFalsePositive: 0.05,
-		BaseLevelSize: 1 << 20,
+		WorkDir:             "/home/zsh/Desktop/Go/work_test/",
+		SSTableMaxSize:      1024,
+		MemTableSize:        1024,
+		BlockSize:           1024,
+		BloomFalsePositive:  0.05,
+		BaseLevelSize:       1 << 20,
 		LevelSizeMultiplier: 10,
-		BaseTableSize: 1 << 20,
+		BaseTableSize:       1 << 20,
 		TableSizeMultiplier: 2,
-		NumLevelZeroTables: 15,
-		MaxLevelNum: 7,
+		NumLevelZeroTables:  15,
+		MaxLevelNum:         7,
 	}
 )
 
@@ -36,26 +36,24 @@ func TestLsm(t *testing.T) {
 	file.ClearDir(opt.WorkDir)
 	lsm := buildLSM()
 	test := func() {
-		baseTest(t, lsm, 128)
+		baseTest(t, lsm, 256)
 	}
 	runTest(1, test)
 }
 
-func TestClose(t *testing.T){
+func TestClose(t *testing.T) {
 	clearDir()
 	lsm := buildLSM()
-	testNil := func ()  {
-		utils.CondPanic(lsm.Set(nil)!= utils.ErrKeyEmpty,fmt.Errorf("[testNil] lsm.set(nil) != err"))
-		_,err := lsm.Get(nil)
-		utils.CondPanic(err != utils.ErrKeyEmpty,fmt.Errorf("[testNil] lsm.set(nil) != err"))
+	testNil := func() {
+		utils.CondPanic(lsm.Set(nil) != utils.ErrKeyEmpty, fmt.Errorf("[testNil] lsm.set(nil) != err"))
+		_, err := lsm.Get(nil)
+		utils.CondPanic(err != utils.ErrKeyEmpty, fmt.Errorf("[testNil] lsm.set(nil) != err"))
 	}
-	runTest(1,testNil)
+	runTest(1, testNil)
 }
 
-
-
 func baseTest(t *testing.T, lsm *lsm.LSM, n int) {
-	key := []byte("CRTS😁硬核课堂MrGSBtL12345678")
+	key := []byte("西安电子科技大学")
 	value := []byte("我擦了")
 	e := codec.NewEntry(key, value).WithTTL(time.Second)
 	lsm.Set(e)
@@ -78,7 +76,6 @@ func runTest(n int, testFunList ...func()) {
 	}
 }
 
-
 func buildLSM() *lsm.LSM {
 	c := make(chan map[uint32]int64, 16)
 	opt.DiscardStatsCh = &c
@@ -87,10 +84,10 @@ func buildLSM() *lsm.LSM {
 }
 
 // 清空dir
-func clearDir(){
-	_,err := os.Stat(opt.WorkDir)
+func clearDir() {
+	_, err := os.Stat(opt.WorkDir)
 	if err == nil {
 		os.RemoveAll(opt.WorkDir)
 	}
-	os.Mkdir(opt.WorkDir,os.ModePerm)
+	os.Mkdir(opt.WorkDir, os.ModePerm)
 }

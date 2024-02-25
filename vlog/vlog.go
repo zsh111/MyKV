@@ -15,7 +15,7 @@ func (v *Vlog) Close() error {
 
 func NewVlog(opt *Options) *Vlog {
 	v := &Vlog{}
-	v.closer = utils.NewCloser(1)
+	v.closer = utils.NewCloser()
 	return v
 }
 

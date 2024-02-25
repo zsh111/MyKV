@@ -106,7 +106,6 @@ func (b *block) ShowBlock() {
 	for ; bi.Valid(); bi.Next() {
 		entry := bi.Item().Entry()
 		fmt.Printf("%v ", string(entry.Key))
-		//fmt.Printf("%v ", string(entry.Value))
 	}
 }
 
@@ -155,7 +154,8 @@ func (tb *builder) Add(e *codec.Entry, isStale bool) {
 	tb.append(diffKey)
 	dst := tb.curBlock.allocate(int(val.EncodeSize()))
 	val.Encode(dst)
-	// delete
+	tb.keyCount++
+	// TODO:delete下面代码无用
 	entry := tb.curBlock.CheckBlockKV(len(tb.curBlock.offsets) - 1)
 	utils.AssertTrue(bytes.Equal(entry.Key, key))
 	utils.AssertTrue(bytes.Equal(entry.Value, val.Value))
@@ -220,7 +220,6 @@ func (tb *builder) storeBlock() {
 	tb.blockList = append(tb.blockList, tb.curBlock)
 	tb.keyCount += uint32(len(tb.curBlock.offsets))
 	tb.curBlock = nil
-	return
 }
 
 func calCheckSum() uint64 {
@@ -233,7 +232,7 @@ func (tb *builder) append(data []byte) {
 	utils.CondPanic(len(data) != copy(dst, data), utils.ErrBuilderAppend)
 }
 
-func (tb *builder) ShowTable() {
+func (tb *builder) ShowTableBuilder() {
 	for i, b := range tb.blockList {
 		fmt.Printf("\n index block: %v\n", i)
 		b.ShowBlock()
@@ -273,7 +272,6 @@ func (tb *builder) Flush(lm *levelManager, tablename string) (*table, error) {
 	totalSize := dataSize + uint32(indexLen) + uint32(checkSumLen) + 4 + 4
 
 	t := &table{lm: lm, fid: file.GetFID(tablename)}
-
 	t.ss = file.OpenSStable(&file.Options{
 		FileName: tablename,
 		Dir:      lm.opt.WorkDir,
@@ -295,6 +293,15 @@ func (tb *builder) Flush(lm *levelManager, tablename string) (*table, error) {
 		return nil, err
 	}
 	copy(dst, buf)
+	tb.sstSize = t.ss.Size()
+	tb.ShowTableBuilder()
+	var iter blockIterator
+	iter.SetBlock(tb.blockList[0])
+	iter.seekFirst()
+	t.ss.SetMinKey(iter.Item().Entry().Key)
+	iter.SetBlock(tb.blockList[len(tb.blockList)-1])
+	iter.seekLast()
+	t.ss.SetMaxKey(iter.Item().Entry().Key)
 	return t, nil
 }
 

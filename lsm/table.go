@@ -26,6 +26,7 @@ type table struct {
 	ref int32
 }
 
+// important
 func openTable(lm *levelManager, tableName string, b *builder) *table {
 	sstSize := lm.opt.SSTableMaxSize
 	if b != nil {
@@ -40,8 +41,8 @@ func openTable(lm *levelManager, tableName string, b *builder) *table {
 		t, err = b.Flush(lm, tableName)
 		if err != nil {
 			utils.Err(err)
+			return nil
 		}
-		return nil
 	} else {
 		t = &table{lm: lm, fid: fid}
 		t.ss = file.OpenSStable(&file.Options{
@@ -56,6 +57,7 @@ func openTable(lm *levelManager, tableName string, b *builder) *table {
 		utils.Err(err)
 		return nil
 	}
+	t.ShowTable()
 	return t
 }
 
@@ -96,7 +98,7 @@ func (t *table) getEntry(key, block []byte, idx int) (entry *codec.Entry, err er
 // get block from table with idx
 func (t *table) block(idx int) (*block, error) {
 	utils.CondPanic(idx < 0, fmt.Errorf("idx=%d", idx))
-	if idx < len(t.ss.GetIndex().Offsets) {
+	if idx >= len(t.ss.GetIndex().Offsets) {
 		return nil, utils.ErrBlockOutIndex
 	}
 	var b *block
@@ -165,13 +167,25 @@ func (t *table) Delete() error {
 	return t.ss.Delete() //delete mmapfile（sstable）
 }
 
+func (t *table) ShowTable() {
+	it := t.NewIterator([]byte{}, true)
+	it.Rewind()
+	fmt.Printf("table %d list: \n", t.fid)
+	i := 1
+	for it.Item() != nil {
+		key := string(it.Item().Entry().Key)
+		value := string(it.Item().Entry().Value)
+		fmt.Printf("first entry %d is: %s\t %s\n", i, key, value)
+	}
+}
+
 // 按block迭代，block有自己的迭代器，封装
 type tableIterator struct {
 	entry    iterator.Item
 	blockPos int // block index
 	preFix   []byte
 	isASC    bool
-	boite    *blockIterator
+	boiter   *blockIterator
 	tb       *table
 	err      error
 }
@@ -182,7 +196,7 @@ func (t *table) NewIterator(prefix []byte, isAsc bool) iterator.Iterator {
 		preFix: prefix,
 		isASC:  isAsc,
 		tb:     t,
-		boite:  &blockIterator{},
+		boiter: &blockIterator{},
 	}
 }
 
@@ -192,27 +206,27 @@ func (it *tableIterator) Next() {
 		it.err = io.EOF
 		return
 	}
-	if len(it.boite.data) == 0 {
+	if len(it.boiter.data) == 0 {
 		block, err := it.tb.block(it.blockPos)
 		if err != nil {
 			it.err = err
 			return
 		}
-		it.boite.tableID = it.tb.fid
-		it.boite.blockID = it.blockPos
-		it.boite.SetBlock(block)
-		it.boite.Rewind()
-		it.err = it.boite.err
+		it.boiter.tableID = it.tb.fid
+		it.boiter.blockID = it.blockPos
+		it.boiter.SetBlock(block)
+		it.boiter.Rewind()
+		it.err = it.boiter.err
 		return
 	}
-	it.boite.Next()
-	if !it.boite.Valid() {
+	it.boiter.Next()
+	if !it.boiter.Valid() {
 		it.blockPos++
-		it.boite.data = nil
+		it.boiter.data = nil
 		it.Next()
 		return
 	}
-	it.entry = it.boite.Item()
+	it.entry = it.boiter.Item()
 }
 
 func (it *tableIterator) Valid() bool {
@@ -239,12 +253,12 @@ func (it *tableIterator) seekFirst() {
 		it.err = err
 		return
 	}
-	it.boite.tableID = it.tb.fid
-	it.boite.blockID = it.blockPos
-	it.boite.SetBlock(block)
-	it.boite.seekFirst()
-	it.entry = it.boite.Item()
-	it.err = it.boite.err
+	it.boiter.tableID = it.tb.fid
+	it.boiter.blockID = it.blockPos
+	it.boiter.SetBlock(block)
+	it.boiter.seekFirst()
+	it.entry = it.boiter.Item()
+	it.err = it.boiter.err
 }
 
 func (it *tableIterator) seekLast() {
@@ -259,12 +273,12 @@ func (it *tableIterator) seekLast() {
 		it.err = err
 		return
 	}
-	it.boite.tableID = it.tb.fid
-	it.boite.blockID = it.blockPos
-	it.boite.SetBlock(block)
-	it.boite.seekLast()
-	it.entry = it.boite.Item()
-	it.err = it.boite.err
+	it.boiter.tableID = it.tb.fid
+	it.boiter.blockID = it.blockPos
+	it.boiter.SetBlock(block)
+	it.boiter.seekLast()
+	it.entry = it.boiter.Item()
+	it.err = it.boiter.err
 }
 
 func (it *tableIterator) Item() iterator.Item {
@@ -272,7 +286,7 @@ func (it *tableIterator) Item() iterator.Item {
 }
 
 func (it *tableIterator) Close() error {
-	it.boite.Close()
+	it.boiter.Close()
 	return it.tb.DecrRef()
 }
 
@@ -295,12 +309,12 @@ func (it *tableIterator) Seek(key []byte) {
 		it.err = err
 		return
 	}
-	it.boite.tableID = it.tb.fid
-	it.boite.blockID = it.blockPos
-	it.boite.SetBlock(block)
-	it.boite.Seek(key)
-	it.err = it.boite.err
-	it.entry = it.boite.Item()
+	it.boiter.tableID = it.tb.fid
+	it.boiter.blockID = it.blockPos
+	it.boiter.SetBlock(block)
+	it.boiter.Seek(key)
+	it.err = it.boiter.err
+	it.entry = it.boiter.Item()
 }
 
 func (t *table) IncrRef() {

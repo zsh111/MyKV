@@ -19,7 +19,7 @@ type LSM struct {
 	immutables []*memTable
 	levels     *levelManager
 	option     *Options
-	closer     *utils.Closer
+	closer     *utils.Closer // 并行回收资源
 }
 
 func (lsm *LSM) Close() error {
@@ -31,7 +31,6 @@ func (lsm *LSM) Close() error {
 			return err
 		}
 	}
-
 	if err := lsm.levels.close(); err != nil {
 		return err
 	}
@@ -50,7 +49,7 @@ func NewLSM(opt *Options) *LSM {
 	lsm.memTable, lsm.immutables = lsm.recovery(opt)
 
 	// 初始化closer用于资源回收的信号控制
-	lsm.closer = utils.NewCloser(1)
+	lsm.closer = utils.NewCloser()
 
 	return lsm
 }
@@ -67,16 +66,29 @@ func (lsm *LSM) StartMerge() {
 
 func (lsm *LSM) Set(entry *codec.Entry) error {
 	// 检测当前memtable是否写满，如果已满：创建新的memtable并将内存表写入immutable
+	if entry == nil || len(entry.Key) == 0 {
+		return utils.ErrKeyEmpty
+	}
+	lsm.closer.Add(1)
+	defer lsm.closer.Done()
+
+	if int(lsm.memTable.wal.Size())+utils.EstimateWalCodecSize(entry) > int(lsm.option.MemTableSize) {
+		lsm.Rotate()
+	}
 	// 否则直接写入
 	if err := lsm.memTable.Set(entry); err != nil {
 		return err
 	}
-
 	// 检查当前immutable是否需要持久化
 	for _, immutable := range lsm.immutables {
 		if err := lsm.levels.flush(immutable); err != nil {
 			return nil
 		}
+		err := immutable.close()
+		utils.Panic(err)
+	}
+	if len(lsm.immutables) != 0 {
+		lsm.immutables = make([]*memTable, 0)
 	}
 	return nil
 }
@@ -99,6 +111,7 @@ func (lsm *LSM) Get(key []byte) (*codec.Entry, error) {
 	return lsm.levels.Get(key)
 }
 
+// 将memtable固化为immtable
 func (lm *LSM) Rotate() {
 	lm.immutables = append(lm.immutables, lm.memTable)
 	lm.memTable = lm.NewMemTable()

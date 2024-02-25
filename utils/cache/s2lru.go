@@ -16,6 +16,7 @@ const (
 	STAGE_TWO
 )
 
+
 func newSLRU(data map[uint64]*list.Element, stageOneCap, stageTwoCap int) *segmentedLRU {
 	return &segmentedLRU{
 		data:        data,

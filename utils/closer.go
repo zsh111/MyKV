@@ -7,9 +7,8 @@ type Closer struct {
 	closeSignal chan struct{}
 }
 
-func NewCloser(i int) *Closer {
+func NewCloser() *Closer {
 	closer := &Closer{waiting: sync.WaitGroup{}}
-	closer.waiting.Add(i)                    //表示等待i组goroutine完成
 	closer.closeSignal = make(chan struct{}) // 无缓冲信号通道
 	return closer
 }

@@ -8,7 +8,6 @@ import (
 	"corekv/utils/codec"
 	"sort"
 	"sync"
-	"sync/atomic"
 )
 
 type (
@@ -53,7 +52,7 @@ func (lm *levelManager) close() error {
 func (lsm *LSM) NewLevelManager(opt *Options) *levelManager {
 	lm := &levelManager{lsm: lsm}
 	lm.opt = opt
-	lm.loadManifest()
+	//lm.loadManifest()
 	lm.build()
 	return lm
 }
@@ -73,31 +72,30 @@ func (lm *levelManager) build() error {
 			tables:   make([]*table, 0),
 		})
 	}
-	manifest := lm.manifest.GetManifest()
+	//manifest := lm.manifest.GetManifest()
 
-	if err := lm.manifest.RevertToManifest(file.LoadIDMap(lm.opt.WorkDir)); err != nil {
-		return err
-	}
+	// if err := lm.manifest.RevertToManifest(file.LoadIDMap(lm.opt.WorkDir)); err != nil {
+	// 	return err
+	// }
 
 	lm.cache = newCache(lm.opt)
-	var maxFID uint64
-	for Fid, tableinfo := range manifest.Tables {
-		fileName := file.CreateSSTFilePath(lm.opt.WorkDir, Fid)
-		if Fid > maxFID {
-			maxFID = Fid
-		}
-		t := openTable(lm, fileName, nil)
-		lm.levels[tableinfo.Level].Add(t)
-	}
-	for i := 0; i < lm.opt.MaxLevelNum; i++ {
-		lm.levels[i].Sort()
-	}
-	atomic.AddUint64(&lm.maxFID, maxFID)
+	// var maxFID uint64 = 1
+	// for Fid, tableinfo := range manifest.Tables {
+	// 	fileName := file.CreateSSTFilePath(lm.opt.WorkDir, Fid)
+	// 	if Fid > maxFID {
+	// 		maxFID = Fid
+	// 	}
+	// 	t := openTable(lm, fileName, nil)
+	// 	lm.levels[tableinfo.Level].Add(t)
+	// }
+	// for i := 0; i < lm.opt.MaxLevelNum; i++ {
+	// 	lm.levels[i].Sort()
+	// }
+	// atomic.AddUint64(&lm.maxFID, maxFID)
 	return nil
 }
 
 func (lm *levelManager) flush(immutable *memTable) error {
-
 	bl := NewTableBuilder(lm.opt)
 	iter := utils.NewSkipListIterator(immutable.sl)
 	iter.Rewind()
@@ -105,9 +103,9 @@ func (lm *levelManager) flush(immutable *memTable) error {
 	for ; iter.Valid(); iter.Next() {
 		bl.Add(iter.Item().Entry(), false)
 	}
-	ssTableName := file.CreateSSTFilePath(lm.opt.WorkDir, 1)
+	ssTableName := file.CreateSSTFilePath(lm.opt.WorkDir, immutable.wal.Fid())
 	table := openTable(lm, ssTableName, bl) // flush builder
-
+	table.ShowTable()                       // show sstable
 	lm.levels[0].Add(table)
 	return nil
 }
@@ -236,20 +234,20 @@ func (lh *levelHandler) getTable(key []byte) *table {
 type levelHandlerRLocked struct{}
 
 // get tables.id range from left to right
-func (lh *levelHandler) overlappingTables(_ levelHandlerRLocked,kr keyRange)(int,int){
+func (lh *levelHandler) overlappingTables(_ levelHandlerRLocked, kr keyRange) (int, int) {
 	if len(kr.left) == 0 || len(kr.right) == 0 {
-		return 0,0
+		return 0, 0
 	}
-	left := sort.Search(len(lh.tables),func (i int)bool {
-		return bytes.Compare(kr.left,lh.tables[i].ss.GetMaxKey()) <= 0
+	left := sort.Search(len(lh.tables), func(i int) bool {
+		return bytes.Compare(kr.left, lh.tables[i].ss.GetMaxKey()) <= 0
 	})
-	right := sort.Search(len(lh.tables),func (i int)bool  {
-		return bytes.Compare(kr.right,lh.tables[i].ss.GetMaxKey()) < 0
+	right := sort.Search(len(lh.tables), func(i int) bool {
+		return bytes.Compare(kr.right, lh.tables[i].ss.GetMaxKey()) < 0
 	})
-	return left,right
+	return left, right
 }
 
-func (lh *levelHandler)replaceTables(toDel,toAdd []*table)error{
+func (lh *levelHandler) replaceTables(toDel, toAdd []*table) error {
 	lh.Lock()
 	toDelMap := make(map[uint64]struct{})
 	for _, t := range toDel {
@@ -257,7 +255,7 @@ func (lh *levelHandler)replaceTables(toDel,toAdd []*table)error{
 	}
 	var newTables []*table
 	for _, t := range lh.tables {
-		_,found := toDelMap[t.fid]
+		_, found := toDelMap[t.fid]
 		if !found {
 			newTables = append(newTables, t)
 			continue
@@ -271,14 +269,14 @@ func (lh *levelHandler)replaceTables(toDel,toAdd []*table)error{
 	}
 
 	lh.tables = newTables
-	sort.Slice(lh.tables,func (i,j int)bool  {
-		return bytes.Compare(lh.tables[i].ss.GetMinKey(),lh.tables[j].ss.GetMinKey()) < 0
+	sort.Slice(lh.tables, func(i, j int) bool {
+		return bytes.Compare(lh.tables[i].ss.GetMinKey(), lh.tables[j].ss.GetMinKey()) < 0
 	})
 	lh.Unlock()
 	return nil // TODO
 }
 
-func (lh *levelHandler)deleteTables(toDel []*table)error{
+func (lh *levelHandler) deleteTables(toDel []*table) error {
 	lh.Lock()
 	toDelMap := make(map[uint64]struct{})
 	for _, t := range toDel {
@@ -286,7 +284,7 @@ func (lh *levelHandler)deleteTables(toDel []*table)error{
 	}
 	var newTables []*table
 	for _, t := range lh.tables {
-		_,found := toDelMap[t.fid]
+		_, found := toDelMap[t.fid]
 		if !found {
 			newTables = append(newTables, t)
 			continue
@@ -298,17 +296,14 @@ func (lh *levelHandler)deleteTables(toDel []*table)error{
 	return nil // TODO
 }
 
-func (lh *levelHandler)iterators()[]iterator.Iterator{
+func (lh *levelHandler) iterators() []iterator.Iterator {
 	lh.RLock()
 	defer lh.RUnlock()
 	if lh.levelNum == 0 {
-		return iteratorsReversed(lh.tables,[]byte{},true)
+		return iteratorsReversed(lh.tables, []byte{}, true)
 	}
 	if len(lh.tables) == 0 {
 		return nil
 	}
-	return []iterator.Iterator{NewConcatIterator(lh.tables,[]byte{},true)}
+	return []iterator.Iterator{NewConcatIterator(lh.tables, []byte{}, true)}
 }
-
-
-

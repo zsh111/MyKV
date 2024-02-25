@@ -91,6 +91,7 @@ func (m *memTable) close() error {
 
 // 将entry写入wal和skiplist
 func (m *memTable) Set(entry *codec.Entry) error {
+	// lock写入wal
 	if err := m.wal.Write(entry); err != nil {
 		return err
 	}

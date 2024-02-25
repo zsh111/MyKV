@@ -31,9 +31,15 @@ type SSTable struct {
 func (ss *SSTable) GetMaxKey() []byte {
 	return ss.maxKey
 }
+func (ss *SSTable) SetMaxKey(maxKey []byte) {
+	ss.maxKey = maxKey
+}
 
 func (ss *SSTable) GetMinKey() []byte {
 	return ss.minKey
+}
+func (ss *SSTable) SetMinKey(minKey []byte) {
+	ss.minKey = minKey
 }
 
 func (ss *SSTable) GetIndex() *pb.TableIndex {
@@ -57,9 +63,8 @@ func OpenSStable(opt *Options) *SSTable {
 
 // 完整初始化sst，不还原block，直接根据index从fd中读取
 func (ss *SSTable) Init() error {
-	var blockoff *pb.BlockOffset //单个block
 	var err error
-	if blockoff, err = ss.initTable(); err != nil {
+	if _, err = ss.initTable(); err != nil {
 		return err
 	}
 	// 从文件中读取创建时间
@@ -67,18 +72,12 @@ func (ss *SSTable) Init() error {
 	statType := stat.Sys().(*syscall.Stat_t)
 	ss.createdAt = time.Unix(statType.Ctim.Sec, statType.Ctim.Nsec)
 
-	buf := blockoff.GetKey()
-	minKey := make([]byte, len(buf))
-	copy(minKey, buf)
-	ss.minKey = minKey
-	ss.maxKey = minKey
 	return nil
 }
 
 // 从文件中初始化index
 func (ss *SSTable) initTable() (*pb.BlockOffset, error) {
 	readPos := len(ss.f.Data)
-
 	readPos -= 4
 	buf := ss.readCheckError(readPos, 4) // 读取checksum length
 	checkSumLen := utils.BytesToU32(buf)
