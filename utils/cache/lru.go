@@ -8,10 +8,10 @@ import (
 type windowLRU struct {
 	data map[uint64]*list.Element
 	cap  int
-	l    *list.List
+	list *list.List
 }
 
-type item struct {
+type storeItem struct {
 	stage    int
 	key      uint64
 	conflict uint64
@@ -22,39 +22,39 @@ func newWindowLRU(size int, data map[uint64]*list.Element) *windowLRU {
 	return &windowLRU{
 		data: data,
 		cap:  size,
-		l:    list.New(),
+		list: list.New(),
 	}
 }
 
-//subtitle:true add:false
-func (lru *windowLRU) add(newitem item) (eitem item, evicted bool) {
-	if lru.l.Len() < lru.cap {
-		// 直接加到队列头
-		lru.data[newitem.key] = lru.l.PushFront(&newitem)
-		return item{}, false
+func (lru *windowLRU) add(newitem storeItem) (eitem storeItem, evicted bool) {
+	// 如果 window 部分容量未满，直接插入
+	if lru.list.Len() < lru.cap {
+		lru.data[newitem.key] = lru.list.PushFront(&newitem)
+		return storeItem{}, false
 	}
-	evictedItem := lru.l.Back()
-	it := evictedItem.Value.(*item)
-	delete(lru.data, it.key)
+	//如果 widow 部分容量已满，按照 lru 规则从尾部淘汰
+	evictItem := lru.list.Back()
+	item := evictItem.Value.(*storeItem)
 
-	// 直接将newitem加到尾部，减少gc
-	eitem, *it = *it, newitem
+	// 从 slice 中删除该条数据
+	delete(lru.data, item.key)
 
-	lru.data[newitem.key] = evictedItem
+	// 这里直接对 evictItem 和 *item 赋值，避免向runtime 再次申请空间
+	eitem, *item = *item, newitem
 
-	lru.l.MoveToFront(evictedItem)
+	lru.data[item.key] = evictItem
+	lru.list.MoveToFront(evictItem)
 	return eitem, true
 }
 
-// 提权
 func (lru *windowLRU) get(v *list.Element) {
-	lru.l.MoveToFront(v)
+	lru.list.MoveToFront(v)
 }
 
 func (lru *windowLRU) String() string {
 	var s string
-	for e := lru.l.Front(); e != nil; e = e.Next() {
-		s += fmt.Sprintf("%v,", e.Value.(*item).value)
+	for e := lru.list.Front(); e != nil; e = e.Next() {
+		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
 	}
 	return s
 }

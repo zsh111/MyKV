@@ -39,6 +39,7 @@ func openTable(lm *levelManager, tableName string, b *builder) *table {
 	fid := file.GetFID(tableName)
 	if b != nil {
 		t, err = b.Flush(lm, tableName)
+		
 		if err != nil {
 			utils.Err(err)
 			return nil

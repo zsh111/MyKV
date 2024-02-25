@@ -41,10 +41,8 @@ func TestSST(t *testing.T) {
 	b := lsm.NewTableBuilder(sstopt)
 	for it.Next(); it.Valid(); it.Next() {
 		e := it.Item().Entry()
-		//fmt.Printf("%v\t", string(e.Key))
 		b.Add(e, false)
 	}
-	//var filename string = sstopt.WorkDir + "0001.sst"
 	bo := lsm.NewBlockIterator()
 	bl := b.GetBlockList()
 	it.Rewind()

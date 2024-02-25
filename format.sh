@@ -2,3 +2,4 @@
 
 
 gofmt -w .
+rm ./work_test/*
