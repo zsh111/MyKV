@@ -33,7 +33,7 @@ type builder struct {
 }
 
 type block struct {
-	data        []byte
+	data        []byte   // 从0开始表示数据
 	offsets     []uint32 // 每个kv的offset
 	offsetsLen  uint32
 	checksum    []byte // 最大8 byte
@@ -154,7 +154,6 @@ func (tb *builder) Add(e *codec.Entry, isStale bool) {
 	tb.append(diffKey)
 	dst := tb.curBlock.allocate(int(val.EncodeSize()))
 	val.Encode(dst)
-	tb.keyCount++
 	// TODO:delete下面代码无用
 	entry := tb.curBlock.CheckBlockKV(len(tb.curBlock.offsets) - 1)
 	utils.AssertTrue(bytes.Equal(entry.Key, key))
@@ -212,7 +211,7 @@ func (tb *builder) storeBlock() {
 	tb.append(utils.U32SliceToBytes(tb.curBlock.offsets))
 	tb.append(utils.U32ToBytes(uint32(len(tb.curBlock.offsets))))
 
-	checkSum := utils.U64ToBytes(calCheckSum())
+	checkSum := utils.U64ToBytes(calCheckSum(tb.curBlock.data[:tb.curBlock.pointer]))
 	tb.append(checkSum)
 	tb.append(utils.U32ToBytes(uint32(len(checkSum))))
 
@@ -222,8 +221,7 @@ func (tb *builder) storeBlock() {
 	tb.curBlock = nil
 }
 
-func calCheckSum() uint64 {
-	var buf [8]byte
+func calCheckSum(buf []byte) uint64 {
 	return uint64(utils.CalCheckSum(buf[:]))
 }
 
@@ -294,7 +292,6 @@ func (tb *builder) Flush(lm *levelManager, tablename string) (*table, error) {
 	}
 	copy(dst, buf)
 	tb.sstSize = t.ss.Size()
-	tb.ShowTableBuilder()
 	var iter blockIterator
 	iter.SetBlock(tb.blockList[0])
 	iter.seekFirst()
@@ -366,7 +363,7 @@ func (it *blockIterator) setIdx(i int) {
 	startOff := int(it.entryOffsets[i])
 	var endOff int
 	if it.idx+1 == len(it.entryOffsets) {
-		endOff = len(it.data)
+		endOff = len(it.data) - len(it.entryOffsets)*4 - 4 // 这里要减去offsets[]+offsets_len的大小
 	} else {
 		endOff = int(it.entryOffsets[it.idx+1])
 	}

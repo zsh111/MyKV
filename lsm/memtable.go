@@ -66,6 +66,7 @@ func (m *memTable) UpdateSkipList() error {
 	if err != nil {
 		return errors.WithMessage(err, fmt.Sprintf("while iterating wal: %s", m.wal.Name()))
 	}
+	m.sl.ShowMeSkiplist()
 	return m.wal.Truncate(int64(endOff))
 }
 

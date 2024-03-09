@@ -103,9 +103,9 @@ func (lm *levelManager) flush(immutable *memTable) error {
 	for ; iter.Valid(); iter.Next() {
 		bl.Add(iter.Item().Entry(), false)
 	}
+	immutable.sl.ShowMeSkiplist()
 	ssTableName := file.CreateSSTFilePath(lm.opt.WorkDir, immutable.wal.Fid())
-	table := openTable(lm, ssTableName, bl) // flush builder
-	table.ShowTable()                       // show sstable
+	table := openTable(lm, ssTableName, bl) // flush builder                // show sstable
 	lm.levels[0].Add(table)
 	return nil
 }

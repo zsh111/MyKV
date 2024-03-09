@@ -96,7 +96,7 @@ func (h *WalHeader) Decode(reader *HashReader) (int, error) {
 	return reader.BytesRead, nil
 }
 
-// 预写日志的格式：|header|key|value|crc32| 不变吗直接写
+// 预写日志的格式：|crc32|header|key|value|hash| 不变吗直接写
 func WalCodec(buf *bytes.Buffer, e *codec.Entry) int {
 	buf.Reset()
 	h := WalHeader{

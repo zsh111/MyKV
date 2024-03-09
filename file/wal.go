@@ -78,7 +78,7 @@ func (wf *WalFile) Truncate(end int64) error {
 		return nil
 	}
 	if fi, err := wf.f.getStat(); err != nil {
-		return fmt.Errorf("while file.stat on file: %s, error: %v\n", wf.Name(), err)
+		return fmt.Errorf("while file.stat on file: %s, error: %v", wf.Name(), err)
 	} else if fi.Size() == end {
 		return nil
 	}
@@ -173,5 +173,4 @@ func (r *SafeRead) MakeEntry(reader io.Reader) (*codec.Entry, error) {
 	}
 	e.ExpiresAt = h.ExpiresAt
 	return e, nil
-
 }

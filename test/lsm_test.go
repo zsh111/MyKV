@@ -17,14 +17,14 @@ import (
 var (
 	// 初始化opt
 	opt = &lsm.Options{
-		WorkDir:             "/home/zsh/Desktop/Go/work_test/",
-		SSTableMaxSize:      1024,
-		MemTableSize:        1024,
-		BlockSize:           1024,
+		WorkDir:             "./work_test/",
+		SSTableMaxSize:      1 << 14,
+		MemTableSize:        1 << 14,
+		BlockSize:           1 << 10,
 		BloomFalsePositive:  0.05,
-		BaseLevelSize:       1 << 20,
+		BaseLevelSize:       1 << 24,
 		LevelSizeMultiplier: 10,
-		BaseTableSize:       1 << 20,
+		BaseTableSize:       1 << 24,
 		TableSizeMultiplier: 2,
 		NumLevelZeroTables:  15,
 		MaxLevelNum:         7,
@@ -36,7 +36,7 @@ func TestLsm(t *testing.T) {
 	file.ClearDir(opt.WorkDir)
 	lsm := buildLSM()
 	test := func() {
-		baseTest(t, lsm, 256)
+		baseTest(t, lsm, 1024)
 	}
 	runTest(1, test)
 }

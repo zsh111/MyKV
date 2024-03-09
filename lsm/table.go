@@ -39,7 +39,6 @@ func openTable(lm *levelManager, tableName string, b *builder) *table {
 	fid := file.GetFID(tableName)
 	if b != nil {
 		t, err = b.Flush(lm, tableName)
-		
 		if err != nil {
 			utils.Err(err)
 			return nil
@@ -58,7 +57,10 @@ func openTable(lm *levelManager, tableName string, b *builder) *table {
 		utils.Err(err)
 		return nil
 	}
-	t.ShowTable()
+	// 下面测试序列化后的数据正确性
+	// b.ShowTableBuilder()
+	// fmt.Println()
+	// t.ShowTable()
 	return t
 }
 
@@ -126,6 +128,7 @@ func (t *table) block(idx int) (*block, error) {
 	readPos -= int(b.checksumLen)
 	b.checksum = b.data[readPos : readPos+int(b.checksumLen)]
 	b.data = b.data[:readPos]
+	// checkSum不一致
 	if err = utils.VerifyCheckSum(b.data, b.checksum); err != nil {
 		return nil, err
 	}
@@ -134,7 +137,7 @@ func (t *table) block(idx int) (*block, error) {
 	entriesIndexStart := readPos - (numEntries * 4)
 	entriesIndexEnd := entriesIndexStart + numEntries*4
 	b.offsets = utils.BytesToU32Slice(b.data[entriesIndexStart:entriesIndexEnd])
-
+	b.baseKey = blockIndex.Key
 	t.lm.cache.blocks.Set(key, b)
 	return b, nil
 }
@@ -173,10 +176,14 @@ func (t *table) ShowTable() {
 	it.Rewind()
 	fmt.Printf("table %d list: \n", t.fid)
 	i := 1
-	for it.Item() != nil {
+	for it.Rewind(); it.Valid(); it.Next() {
 		key := string(it.Item().Entry().Key)
 		value := string(it.Item().Entry().Value)
-		fmt.Printf("first entry %d is: %s\t %s\n", i, key, value)
+		fmt.Printf("entry number is :%d key: %s\t value: %s\n", i, key, value)
+		if i == 39 {
+			fmt.Println()
+		}
+		i++
 	}
 }
 
